@@ -1,0 +1,37 @@
+version: 0.2
+
+env:
+  variables:
+    REPO_URI: "043309364579.dkr.ecr.us-east-1.amazonaws.com/simple-login-nginx"  # Replace with your ECR URI
+    AWS_REGION: "us-east-1"                                                       # Replace with your region
+    AWS_ACCOUNT_ID: "043309364579"                                       # Set your AWS Account ID here
+
+phases:
+  install:
+    commands:
+      # Log into Amazon ECR
+      - echo "Logging in to AWS ECR..."
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REPO_URI
+      - echo "Extracting Git commit hash for image tagging..."
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+  
+  build:
+    commands:
+      # Build the Docker image
+      - echo "Building Docker image..."
+      - docker build -t $REPO_URI:$IMAGE_TAG .
+      - docker tag $REPO_URI:$IMAGE_TAG $REPO_URI:latest
+      
+  post_build:
+    commands:
+      # Push the Docker image to ECR
+      - echo "Pushing image to ECR..."
+      - docker push $REPO_URI:$IMAGE_TAG
+      - docker push $REPO_URI:latest
+      - echo "Updating ECS Task Definition..."
+      - printf '[{"name":"simple-login-nginx","imageUri":"%s"}]' $REPO_URI:$IMAGE_TAG > imagedefinitions.json
+
+artifacts:
+  files:
+    - '**/*'
+    - imagedefinitions.json
