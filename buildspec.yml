@@ -10,6 +10,11 @@ phases:
   install:
     commands:
       # Log into Amazon ECR
+      - echo "Fetching Docker credentials from AWS Secrets Manager..."
+      - export DOCKER_USERNAME=$(aws secretsmanager get-secret-value --secret-id Docker-Credentials --query 'SecretString' --output text | jq -r .DOCKER_USERNAME)  #Docker-Kabilan Is the Secret Name of the stored credentials
+      - export DOCKER_PASSWORD=$(aws secretsmanager get-secret-value --secret-id Docker-Credentials --query 'SecretString' --output text | jq -r .DOCKER_PASSWORD)
+      - echo "Logging into Docker Hub..."
+      - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
       - echo "Logging in to AWS ECR..."
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REPO_URI
       - echo "Extracting Git commit hash for image tagging..."
